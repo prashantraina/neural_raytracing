@@ -143,13 +143,10 @@ __device__ void CheckPixelInsideFace(
   const float face_area = EdgeFunctionForward(v0xy, v1xy, v2xy);
   // Check if the face is visible to the camera.
   const bool back_face = face_area < 0.0;
-  const bool zero_face_area =
-      (face_area <= kEpsilon && face_area >= -1.0f * kEpsilon);
+  const bool zero_face_area = face_area <= kEpsilon && face_area >= -1.0f * kEpsilon;
 
-  if (zmax < 0 || cull_backfaces && back_face || outside_bbox ||
-      zero_face_area) {
-    return;
-  }
+  if (zmax < 0 || cull_backfaces && back_face || outside_bbox || zero_face_area)
+      return;
 
   // Calculate barycentric coords and euclidean dist to triangle.
   const float3 p_bary0 = BarycentricCoordsForward(pxy, v0xy, v1xy, v2xy);
@@ -162,9 +159,8 @@ __device__ void CheckPixelInsideFace(
   const float pz =
       p_bary_clip.x * v0.z + p_bary_clip.y * v1.z + p_bary_clip.z * v2.z;
 
-  if (pz < 0) {
+  if (pz < 0)
     return; // Face is behind the image plane.
-  }
 
   // Get abs squared distance
   const float dist = PointTriangleDistanceForward(pxy, v0xy, v1xy, v2xy);

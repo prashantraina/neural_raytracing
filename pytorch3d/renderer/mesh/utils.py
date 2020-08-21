@@ -20,8 +20,8 @@ def _clip_barycentric_coordinates(bary) -> torch.Tensor:
         The output is the same shape as the input.
     """
     if bary.shape[-1] != 3:
-        msg = "Expected barycentric coords to have last dim = 3; got %r"
-        raise ValueError(msg % (bary.shape,))
+        msg = f"Expected barycentric coords to have last dim = 3; got {bary.shape}"
+        raise ValueError(msg)
     ndims = bary.ndim - 1
     mask = bary.eq(-1).all(dim=-1, keepdim=True).expand(*((-1,) * ndims + (3,)))
     clipped = bary.clamp(min=0.0)

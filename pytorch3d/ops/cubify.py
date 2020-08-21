@@ -15,8 +15,7 @@ def unravel_index(idx, dims) -> torch.Tensor:
       dims: The shape of the array to be indexed.
     Implemented only for dims=(N, H, W, D)
     """
-    if len(dims) != 4:
-        raise ValueError("Expects a 4-element list.")
+    if len(dims) != 4: raise ValueError("Expects a 4-element list.")
     N, H, W, D = dims
     n = idx // (H * W * D)
     h = (idx - n * H * W * D) // (W * D)

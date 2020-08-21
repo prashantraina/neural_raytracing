@@ -13,6 +13,9 @@ from .shader import (
     SoftGouraudShader,
     SoftPhongShader,
     SoftSilhouetteShader,
+
+    NeuralShader,
+    DebugShader,
 )
 from .shading import gouraud_shading, phong_shading
 from .textures import Textures  # DEPRECATED

@@ -194,6 +194,9 @@ class CamerasBase(TensorProperties):
         view_to_ndc_transform = self.get_projection_transform(**kwargs)
         return world_to_view_transform.compose(view_to_ndc_transform)
 
+    def sample_towards(self, points) -> torch.Tensor:
+      return F.normalize(self.get_camera_center() - points, dim=-1)
+
     def transform_points(
         self, points, eps: Optional[float] = None, **kwargs
     ) -> torch.Tensor:
@@ -342,8 +345,8 @@ class FoVPerspectiveCameras(CamerasBase):
 
     def __init__(
         self,
-        znear=1.0,
-        zfar=100.0,
+        znear=1e-2,
+        zfar=1e4,
         aspect_ratio=1.0,
         fov=60.0,
         degrees: bool = True,
@@ -533,11 +536,48 @@ class FoVPerspectiveCameras(CamerasBase):
         # unproject with inverse of the projection
         unprojection_transform = to_ndc_transform.inverse()
         return unprojection_transform.transform_points(xy_sdepth)
+    def sample_positions(
+      self, position_samples, sampler, bundle_size=8, size=512, with_noise=False,
+      N=1,
+    ) -> torch.Tensor:
+      # position_samples: (W, H, 2)
+      # returns a set of rays in (W, H, BUNDLE_SIZE, 6=origin(3):direction(3))
+      # can be tiled in the 0th dimension for multiple batches
+
+      device = position_samples.device
+
+      # (W, H, BUNDLE_SIZE, 2)
+      position_samples = position_samples.unsqueeze(-2)\
+        .expand(*position_samples.shape[:-1], bundle_size, 2)#.clone()
+
+      if with_noise:
+        d = with_noise
+        position_samples = position_samples + \
+          (d * sampler.sample(position_samples.shape, device=device) - d/2)
+      # [0, size] -> [0,1] -> [-2, 0] -> [-1, 1]
+      position_samples = -2*(position_samples/size) + 1
+
+      #trafo = self.get_projection_transform().inverse()
+
+      # (W, H, BUNDLE, 3) with 0 at end to perform Point to World space conversion
+      sample_points = torch.cat([
+        position_samples,
+        torch.ones(position_samples.shape[:-1] + (1,), device = device),
+      ], dim=-1)
+
+      trafo = self.get_full_projection_transform().inverse()
+      directions = trafo.transform_points(sample_points.reshape(-1, 3))
+      directions = F.normalize(directions.reshape(N, *sample_points.shape), dim=-1)
+
+      origins = self.get_camera_center()[:, None, None, None, :]\
+        .expand_as(directions)
+
+      return torch.cat([origins, directions], dim=-1)
 
 
 def OpenGLOrthographicCameras(
-    znear=1.0,
-    zfar=100.0,
+    znear=1e-2,
+    zfar=1e4,
     top=1.0,
     bottom=-1.0,
     left=-1.0,

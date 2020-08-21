@@ -6,6 +6,10 @@ import torch
 
 from . import utils as struct_utils
 
+from pytorch3d.pathtracer.scene import (
+  mesh_intersect, mesh_intersect_test, mesh_level_surfaces
+)
+
 
 class Meshes(object):
     """
@@ -206,6 +210,9 @@ class Meshes(object):
         "valid",
         "equisized",
     ]
+    intersect = mesh_intersect
+    intersect_test = mesh_intersect_test
+    level_surfaces = mesh_level_surfaces
 
     def __init__(self, verts=None, faces=None, textures=None):
         """
@@ -1497,16 +1504,12 @@ class Meshes(object):
         return self.__class__(verts=new_verts_list, faces=new_faces_list, textures=tex)
 
     def sample_textures(self, fragments):
-        if self.textures is not None:
-            # Pass in faces packed. If the textures are defined per
-            # vertex, the face indices are needed in order to interpolate
-            # the vertex attributes across the face.
-            return self.textures.sample_textures(
-                fragments, faces_packed=self.faces_packed()
-            )
-        else:
-            raise ValueError("Meshes does not have textures")
+        if self.textures is None: raise ValueError("Meshes does not have textures")
 
+        # Pass in faces packed. If the textures are defined per
+        # vertex, the face indices are needed in order to interpolate
+        # the vertex attributes across the face.
+        return self.textures.sample_textures(fragments, faces_packed=self.faces_packed())
 
 def join_meshes_as_batch(meshes: List[Meshes], include_textures: bool = True):
     """

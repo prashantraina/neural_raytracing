@@ -8,6 +8,33 @@ from pytorch3d.ops import interpolate_face_attributes
 
 from .textures import TexturesVertex
 
+def _neural_shading(
+    points, normals, lights, cameras, pixels_uv, NN,
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    batch_size = points.shape[0]
+
+    uv = pixels_uv.reshape(batch_size, -1, 2)
+    p = points.reshape(batch_size, -1, 3)
+    n = normals.reshape(batch_size, -1, 3)
+    wi = lights.sample_towards(points).reshape(batch_size, -1, 3)
+    wo = cameras.sample_towards(points).reshape(batch_size, -1, 3)
+
+    x = torch.cat([uv, p, n, wo, wi], dim=-1)
+    return NN(x).reshape(normals.shape)
+
+def neural_shading(
+    meshes, fragments, lights, cameras, pixels_uv, texels, NN
+) -> torch.Tensor:
+    verts = meshes.verts_packed()  # (V, 3)
+    faces = meshes.faces_packed()  # (F, 3)
+    vertex_normals = meshes.verts_normals_packed()  # (V, 3)
+    faces_verts = verts[faces]
+    faces_normals = vertex_normals[faces]
+    pixel_coords = interpolate_face_attributes(fragments.pix_to_face, fragments.bary_coords, faces_verts)
+    pixel_normals = interpolate_face_attributes(fragments.pix_to_face, fragments.bary_coords, faces_normals)
+    return _neural_shading(
+      pixel_coords, pixel_normals, lights, cameras, pixels_uv, NN,
+    )
 
 def _apply_lighting(
     points, normals, lights, cameras, materials
@@ -156,6 +183,49 @@ def flat_shading(meshes, fragments, lights, cameras, materials, texels) -> torch
     Returns:
         colors: (N, H, W, K, 3)
     """
+    verts = meshes.verts_packed()  # (V, 3)
+    faces = meshes.faces_packed()  # (F, 3)
+    face_normals = meshes.faces_normals_packed()  # (V, 3)
+    faces_verts = verts[faces]
+    face_coords = faces_verts.mean(dim=-2)  # (F, 3, XYZ) mean xyz across verts
+
+    # Replace empty pixels in pix_to_face with 0 in order to interpolate.
+    mask = fragments.pix_to_face == -1
+    pix_to_face = fragments.pix_to_face.clone()
+    pix_to_face[mask] = 0
+
+    N, H, W, K = pix_to_face.shape
+    idx = pix_to_face.view(N * H * W * K, 1).expand(N * H * W * K, 3)
+
+    # gather pixel coords
+    pixel_coords = face_coords.gather(0, idx).view(N, H, W, K, 3)
+    pixel_coords[mask] = 0.0
+    # gather pixel normals
+    pixel_normals = face_normals.gather(0, idx).view(N, H, W, K, 3)
+    pixel_normals[mask] = 0.0
+
+    # Calculate the illumination at each face
+    ambient, diffuse, specular = _apply_lighting(
+        pixel_coords, pixel_normals, lights, cameras, materials
+    )
+    colors = (ambient + diffuse) * texels + specular
+    return colors
+
+# just returns the normal
+def debug_shading(meshes, fragments) -> torch.Tensor:
+    return fragments.bary_coords
+    faces = meshes.faces_packed()  # (F, 3)
+    vertex_normals = meshes.verts_normals_packed()  # (V, 3)
+    faces_normals = vertex_normals[faces]
+    pixel_normals = interpolate_face_attributes(
+      fragments.pix_to_face, fragments.bary_coords, faces_normals
+    )
+    return pixel_normals
+
+
+
+
+
     verts = meshes.verts_packed()  # (V, 3)
     faces = meshes.faces_packed()  # (F, 3)
     face_normals = meshes.faces_normals_packed()  # (V, 3)

@@ -516,7 +516,7 @@ class TexturesAtlas(TexturesBase):
         texels = atlas_packed[pix_to_face, w_y, w_x]
         texels = texels * (pix_to_face >= 0)[..., None].float()
 
-        return texels
+        return texels, None
 
     def faces_verts_textures_packed(self) -> torch.Tensor:
         """
@@ -943,7 +943,8 @@ class TexturesUV(TexturesBase):
         )
         # texels now has shape (NK, C, H_out, W_out)
         texels = texels.reshape(N, K, C, H_out, W_out).permute(0, 3, 4, 1, 2)
-        return texels
+        pixel_uvs = pixel_uvs.reshape(N, K, 2, H_out, W_out).permute(0, 3, 4, 1, 2)
+        return texels, pixel_uvs
 
     def faces_verts_textures_packed(self) -> torch.Tensor:
         """
@@ -1370,7 +1371,7 @@ class TexturesVertex(TexturesBase):
         texels = interpolate_face_attributes(
             fragments.pix_to_face, fragments.bary_coords, faces_verts_features
         )
-        return texels
+        return texels, None
 
     def faces_verts_textures_packed(self, faces_packed=None) -> torch.Tensor:
         """

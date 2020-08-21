@@ -31,8 +31,7 @@ def list_to_padded(
     Returns:
       x_padded: tensor consisting of padded input tensors
     """
-    if equisized:
-        return torch.stack(x, 0)
+    if equisized: return torch.stack(x, 0)
 
     if pad_size is None:
         pad_dim0 = max(y.shape[0] for y in x if len(y) > 0)

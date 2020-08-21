@@ -5,6 +5,7 @@ import torch
 import torch.nn.functional as F
 
 from .utils import TensorProperties, convert_to_tensors_and_broadcast
+from ..pathtracer.interaction import DirectionSample
 
 
 def diffuse(normals, color, direction) -> torch.Tensor:
@@ -225,6 +226,7 @@ class PointLights(TensorProperties):
         specular_color=((0.2, 0.2, 0.2),),
         location=((0, 1, 0),),
         device: str = "cpu",
+        scale=1e-2,
     ):
         """
         Args:
@@ -249,6 +251,10 @@ class PointLights(TensorProperties):
             location=location,
         )
         _validate_light_properties(self)
+
+        self.intensity = torch.tensor(ambient_color, device=device)
+        self.scale = scale
+
         # pyre-fixme[16]: `PointLights` has no attribute `location`.
         if self.location.shape[-1] != 3:
             msg = "Expected location to have shape (N, 3); got %r"
@@ -276,7 +282,26 @@ class PointLights(TensorProperties):
             camera_position=camera_position,
             shininess=shininess,
         )
+    def sample_towards(self, points): return F.normalize(self.location - points, dim=-1)
 
+    def sample_direction(self, it, sampler, active=True):
+      ds = DirectionSample()
+      ds.p = self.location
+      # Surface normal
+      ds.n = 0
+      ds.uv = 0
+      ds.obj = self
+      ds.delta = torch.tensor(True, device=self.device)
+      #assert(it.p.isfinite().all())
+      ds.d = ds.p - it.p
+
+      # from interaction to self
+      ds.dist = (ds.d * ds.d).sum(dim=-1, keepdim=True).sqrt()
+      inv_dist = (1e-7 + ds.dist).reciprocal()
+      ds.d = ds.d*inv_dist
+      spectrum = self.scale * self.intensity * inv_dist * inv_dist
+
+      return ds, spectrum
 
 def _validate_light_properties(obj):
     props = ("ambient_color", "diffuse_color", "specular_color")

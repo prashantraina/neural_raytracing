@@ -18,6 +18,7 @@
 #include "point_mesh/point_mesh_cuda.h"
 #include "rasterize_meshes/rasterize_meshes.h"
 #include "rasterize_points/rasterize_points.h"
+#include "rasterize_spheres/rasterize_spheres.h"
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("face_areas_normals_forward", &FaceAreasNormalsForward);
@@ -32,10 +33,15 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("knn_points_idx", &KNearestNeighborIdx);
   m.def("knn_points_backward", &KNearestNeighborBackward);
   m.def("gather_scatter", &GatherScatter);
-  m.def("rasterize_points", &RasterizePoints);
+
   m.def("rasterize_points_backward", &RasterizePointsBackward);
   m.def("rasterize_meshes_backward", &RasterizeMeshesBackward);
+  m.def("rasterize_spheres_backward", &RasterizeSpheresBackward);
+
+  m.def("rasterize_points", &RasterizePoints);
   m.def("rasterize_meshes", &RasterizeMeshes);
+  m.def("rasterize_spheres", &RasterizeSpheres);
+
   m.def("sigmoid_alpha_blend", &SigmoidAlphaBlend);
   m.def("sigmoid_alpha_blend_backward", &SigmoidAlphaBlendBackward);
 
@@ -53,6 +59,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("_rasterize_meshes_naive", &RasterizeMeshesNaive);
   m.def("_rasterize_meshes_coarse", &RasterizeMeshesCoarse);
   m.def("_rasterize_meshes_fine", &RasterizeMeshesFine);
+
+  m.def("_rasterize_spheres_coarse", &RasterizeSpheresCoarse);
+  m.def("_rasterize_spheres_naive", &RasterizeSpheresNaive);
 
   // PointEdge distance functions
   m.def("point_edge_dist_forward", &PointEdgeDistanceForward);
